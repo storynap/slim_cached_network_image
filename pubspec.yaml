@@ -1,0 +1,22 @@
+name: slim_cached_network_image
+description: "Slim cached network image."
+version: 0.0.1
+homepage: https://github.com/storynap/slim_cached_network_image
+repository: https://github.com/storynap/slim_cached_network_image
+issue_tracker: https://github.com/storynap/slim_cached_network_image/issues
+
+environment:
+  sdk: ^3.5.4
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cached_network_image: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
