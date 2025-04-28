@@ -9,10 +9,10 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 const String _defaultCacheKey = 'slimCachedImageData';
 const int _defaultMaxCacheObjects = 100;
 const Duration _defaultStalePeriod = Duration(days: 1);
-const int? _defaultMaxMemWidth = 800;
-const int? _defaultMaxMemHeight = 800;
-const int? _defaultDiskMemWidth = null;
-const int? _defaultDiskMemHeight = null;
+const int _defaultMaxMemWidth = 800;
+const int _defaultMaxMemHeight = 800;
+const int? _defaultMaxDiskWidth = null;
+const int? _defaultMaxDiskHeight = null;
 
 /// Custom Cache Manager configuration
 class SlimCachedImageConfig {
@@ -28,10 +28,10 @@ class SlimCachedImageConfig {
     this.cacheKey = _defaultCacheKey,
     this.maxNrOfCacheObjects = _defaultMaxCacheObjects,
     this.stalePeriod = _defaultStalePeriod,
-    this.maxMemWidth = _defaultDiskMemWidth,
-    this.maxMemHeight = _defaultDiskMemHeight,
-    this.maxDiskWidth = _defaultDiskMemWidth,
-    this.maxDiskHeight = _defaultDiskMemHeight,
+    this.maxMemWidth = _defaultMaxMemWidth,
+    this.maxMemHeight = _defaultMaxMemHeight,
+    this.maxDiskWidth = _defaultMaxDiskWidth,
+    this.maxDiskHeight = _defaultMaxDiskHeight,
   });
 }
 
@@ -41,18 +41,19 @@ SlimCachedImageConfig _globalCacheConfig = SlimCachedImageConfig();
 /// Custom Cache Manager
 class SlimCacheManager extends CacheManager with ImageCacheManager {
   static const key = _defaultCacheKey; // Use default initially
-  static SlimCacheManager? instance;
+  static SlimCacheManager instance = makeSlimCacheManager();
 
   SlimCacheManager._internal(super.config);
 
-  factory SlimCacheManager({SlimCachedImageConfig? config}) {
+  static makeSlimCacheManager({SlimCachedImageConfig? config}) {
     final effectiveConfig = config ?? _globalCacheConfig;
+    late SlimCacheManager newInstance;
+
     // Compare only core Config properties for instance reuse
-    if (instance == null ||
-        instance!.config.cacheKey != effectiveConfig.cacheKey ||
-        instance!.config.maxNrOfCacheObjects != effectiveConfig.maxNrOfCacheObjects ||
-        instance!.config.stalePeriod != effectiveConfig.stalePeriod) {
-      instance = SlimCacheManager._internal(
+    if (instance.config.cacheKey != effectiveConfig.cacheKey ||
+        instance.config.maxNrOfCacheObjects != effectiveConfig.maxNrOfCacheObjects ||
+        instance.config.stalePeriod != effectiveConfig.stalePeriod) {
+      newInstance = SlimCacheManager._internal(
         Config(
           effectiveConfig.cacheKey,
           stalePeriod: effectiveConfig.stalePeriod,
@@ -60,11 +61,10 @@ class SlimCacheManager extends CacheManager with ImageCacheManager {
           repo: JsonCacheInfoRepository(databaseName: effectiveConfig.cacheKey),
           fileService: HttpFileService(),
           fileSystem: IOFileSystem(effectiveConfig.cacheKey),
-          // memCacheWidth/Height are handled by ImageCacheManager mixin, not set here
         ),
       );
     }
-    return instance!;
+    return newInstance;
   }
 
   // Expose effective config for consumers if needed (read-only)
@@ -75,12 +75,11 @@ class SlimCacheManager extends CacheManager with ImageCacheManager {
   /// This should be called once, preferably at app startup.
   static void setDefaultConfig(SlimCachedImageConfig config) {
     _globalCacheConfig = config;
-    // Reset instance to apply new config on next factory call
-    instance = null;
+    instance = makeSlimCacheManager(config: config);
   }
 
   static Future<void> clearCache() async {
-    await instance?.emptyCache();
+    await instance.emptyCache();
   }
 }
 
@@ -203,7 +202,7 @@ class SlimCachedNetworkImageProvider extends ImageProvider<SlimCachedNetworkImag
   });
 
   // Internal helper to get the effective cache manager
-  BaseCacheManager get _effectiveCacheManager => cacheManager ?? SlimCacheManager.instance!;
+  BaseCacheManager get _effectiveCacheManager => cacheManager ?? SlimCacheManager.instance;
 
   // Internal helper to get the effective config
   SlimCachedImageConfig get _effectiveConfig {
