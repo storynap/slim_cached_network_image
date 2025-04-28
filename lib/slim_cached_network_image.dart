@@ -41,29 +41,26 @@ SlimCachedImageConfig _globalCacheConfig = SlimCachedImageConfig();
 /// Custom Cache Manager
 class SlimCacheManager extends CacheManager with ImageCacheManager {
   static const key = _defaultCacheKey; // Use default initially
-  static SlimCacheManager instance = makeSlimCacheManager();
+  static SlimCacheManager? instance = makeSlimCacheManager();
 
   SlimCacheManager._internal(super.config);
 
-  static makeSlimCacheManager({SlimCachedImageConfig? config}) {
+  static SlimCacheManager makeSlimCacheManager({SlimCachedImageConfig? config}) {
     final effectiveConfig = config ?? _globalCacheConfig;
     late SlimCacheManager newInstance;
 
     // Compare only core Config properties for instance reuse
-    if (instance.config.cacheKey != effectiveConfig.cacheKey ||
-        instance.config.maxNrOfCacheObjects != effectiveConfig.maxNrOfCacheObjects ||
-        instance.config.stalePeriod != effectiveConfig.stalePeriod) {
-      newInstance = SlimCacheManager._internal(
-        Config(
-          effectiveConfig.cacheKey,
-          stalePeriod: effectiveConfig.stalePeriod,
-          maxNrOfCacheObjects: effectiveConfig.maxNrOfCacheObjects,
-          repo: JsonCacheInfoRepository(databaseName: effectiveConfig.cacheKey),
-          fileService: HttpFileService(),
-          fileSystem: IOFileSystem(effectiveConfig.cacheKey),
-        ),
-      );
-    }
+
+    newInstance = SlimCacheManager._internal(
+      Config(
+        effectiveConfig.cacheKey,
+        stalePeriod: effectiveConfig.stalePeriod,
+        maxNrOfCacheObjects: effectiveConfig.maxNrOfCacheObjects,
+        repo: JsonCacheInfoRepository(databaseName: effectiveConfig.cacheKey),
+        fileService: HttpFileService(),
+        fileSystem: IOFileSystem(effectiveConfig.cacheKey),
+      ),
+    );
     return newInstance;
   }
 
@@ -79,7 +76,7 @@ class SlimCacheManager extends CacheManager with ImageCacheManager {
   }
 
   static Future<void> clearCache() async {
-    await instance.emptyCache();
+    await instance?.emptyCache();
   }
 }
 
@@ -202,7 +199,7 @@ class SlimCachedNetworkImageProvider extends ImageProvider<SlimCachedNetworkImag
   });
 
   // Internal helper to get the effective cache manager
-  BaseCacheManager get _effectiveCacheManager => cacheManager ?? SlimCacheManager.instance;
+  BaseCacheManager get _effectiveCacheManager => cacheManager ?? SlimCacheManager.instance!;
 
   // Internal helper to get the effective config
   SlimCachedImageConfig get _effectiveConfig {

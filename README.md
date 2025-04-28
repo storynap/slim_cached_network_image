@@ -29,22 +29,25 @@ Then, run `flutter pub get`.
 
 ### 1. Set Default Configuration (Optional)
 
-You can set global default cache settings, typically in your `main.dart` before running the app.
+You can set global default cache settings, typically in your `main.dart` before running the app. **Important:** Ensure Flutter bindings are initialized before setting the configuration by calling `WidgetsFlutterBinding.ensureInitialized();`.
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:slim_cached_network_image/slim_cached_network_image.dart';
 
 void main() {
+  // Ensure Flutter bindings are initialized before using plugins
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Configure the default cache settings
-  SlimCacheManager.setDefaultConfig(SlimCacheConfig(
+  SlimCacheManager.setDefaultConfig(SlimCachedImageConfig( // Use SlimCachedImageConfig
     maxNrOfCacheObjects: 200, // Cache up to 200 images
     stalePeriod: const Duration(days: 14), // Keep images for 14 days
-    maxWidth: 500, // Cache images with a max width of 500 pixels
-    maxHeight: 500, // Cache images with a max height of 500 pixels
+    maxMemWidth: 500, // Cache images with a max width of 500 pixels (disk cache)
+    maxMemHeight: 500, // Cache images with a max height of 500 pixels (disk cache)
   ));
 
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 // ... rest of your app

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:slim_cached_network_image/slim_cached_network_image.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   // Optional: Set default configuration for the cache manager
   SlimCacheManager.setDefaultConfig(SlimCachedImageConfig(
     maxNrOfCacheObjects: 150, // Default max objects
