@@ -10,7 +10,7 @@ const String _defaultCacheKey = 'slimCachedImageData';
 const int _defaultMaxCacheObjects = 100;
 const Duration _defaultStalePeriod = Duration(days: 1);
 const int _defaultMaxMemWidth = 800;
-const int _defaultMaxMemHeight = 800;
+const int? _defaultMaxMemHeight = null;
 const int? _defaultMaxDiskWidth = null;
 const int? _defaultMaxDiskHeight = null;
 
