@@ -118,6 +118,44 @@ class MyHomePage extends StatelessWidget {
                 // but DecorationImage doesn't directly support placeholders like the widget.
               ),
             ),
+            const SizedBox(height: 24),
+            const Text(
+              'Stress Test: 2000 SlimCachedNetworkImage Thumbnails',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(2000, (index) {
+                final seed = index + 1000;
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: SlimCachedNetworkImage(
+                      imageUrl: 'https://picsum.photos/seed/scni$seed/200/200',
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 80,
+                      memCacheHeight: 80,
+                      placeholder: (context, url) => const ColoredBox(
+                        color: Color(0x11000000),
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
           ],
         ),
       ),

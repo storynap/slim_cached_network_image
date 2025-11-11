@@ -13,6 +13,11 @@ const int _defaultMaxMemWidth = 800;
 const int? _defaultMaxMemHeight = null;
 const int? _defaultMaxDiskWidth = null;
 const int? _defaultMaxDiskHeight = null;
+const int _defaultDecodeErrorRetryCount = 3;
+const Duration _defaultDecodeErrorRetryDelay = Duration(milliseconds: 1000);
+const bool _defaultRetryOnChromeDecodeError = true;
+
+const String _chromeDecodeErrorMessage = 'EncodingError';
 
 /// Custom Cache Manager configuration
 class SlimCachedImageConfig {
@@ -23,6 +28,9 @@ class SlimCachedImageConfig {
   final int? maxMemHeight;
   final int? maxDiskWidth;
   final int? maxDiskHeight;
+  final int decodeErrorRetryCount;
+  final Duration decodeErrorRetryDelay;
+  final bool retryOnChromeDecodeError;
 
   SlimCachedImageConfig({
     this.cacheKey = _defaultCacheKey,
@@ -32,6 +40,9 @@ class SlimCachedImageConfig {
     this.maxMemHeight = _defaultMaxMemHeight,
     this.maxDiskWidth = _defaultMaxDiskWidth,
     this.maxDiskHeight = _defaultMaxDiskHeight,
+    this.decodeErrorRetryCount = _defaultDecodeErrorRetryCount,
+    this.decodeErrorRetryDelay = _defaultDecodeErrorRetryDelay,
+    this.retryOnChromeDecodeError = _defaultRetryOnChromeDecodeError,
   });
 }
 
@@ -45,7 +56,9 @@ class SlimCacheManager extends CacheManager with ImageCacheManager {
 
   SlimCacheManager._internal(super.config);
 
-  static SlimCacheManager makeSlimCacheManager({SlimCachedImageConfig? config}) {
+  static SlimCacheManager makeSlimCacheManager({
+    SlimCachedImageConfig? config,
+  }) {
     final effectiveConfig = config ?? _globalCacheConfig;
     late SlimCacheManager newInstance;
 
@@ -81,7 +94,7 @@ class SlimCacheManager extends CacheManager with ImageCacheManager {
 }
 
 /// A widget that wraps [CachedNetworkImage] using a custom [SlimCacheManager].
-class SlimCachedNetworkImage extends StatelessWidget {
+class SlimCachedNetworkImage extends StatefulWidget {
   final String imageUrl;
   final BaseCacheManager? cacheManager; // Optional per-widget config
   final Widget Function(BuildContext, ImageProvider)? imageBuilder;
@@ -105,6 +118,9 @@ class SlimCachedNetworkImage extends StatelessWidget {
   final FilterQuality filterQuality;
   final int? memCacheWidth;
   final int? memCacheHeight;
+  final bool retryOnChromeDecodeError;
+  final int? decodeErrorRetryCount;
+  final Duration? decodeErrorRetryDelay;
 
   const SlimCachedNetworkImage({
     super.key,
@@ -131,37 +147,141 @@ class SlimCachedNetworkImage extends StatelessWidget {
     this.filterQuality = FilterQuality.low,
     this.memCacheWidth,
     this.memCacheHeight,
+    this.retryOnChromeDecodeError = _defaultRetryOnChromeDecodeError,
+    this.decodeErrorRetryCount,
+    this.decodeErrorRetryDelay,
   });
+
+  @override
+  State<SlimCachedNetworkImage> createState() => _SlimCachedNetworkImageState();
+}
+
+class _SlimCachedNetworkImageState extends State<SlimCachedNetworkImage> {
+  int _retryIndex = 0;
+  int _retrySalt = 0;
+  bool _retryScheduled = false;
+
+  SlimCachedImageConfig get _config => SlimCacheManager.currentConfig;
+
+  BaseCacheManager? get _effectiveCacheManager => widget.cacheManager ?? SlimCacheManager.instance;
+
+  bool get _retryEnabled => widget.retryOnChromeDecodeError && _effectiveMaxRetryCount > 0;
+
+  int get _effectiveMaxRetryCount => widget.decodeErrorRetryCount ?? _config.decodeErrorRetryCount;
+
+  Duration get _retryDelay => widget.decodeErrorRetryDelay ?? _config.decodeErrorRetryDelay;
+
+  String get _effectiveImageUrl {
+    if (!_retryEnabled || _retryIndex == 0) {
+      return widget.imageUrl;
+    }
+
+    final retryMarker = '${_retryIndex}_$_retrySalt';
+    return _appendRetryMarker(widget.imageUrl, retryMarker);
+  }
+
+  @override
+  void didUpdateWidget(covariant SlimCachedNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.imageUrl != oldWidget.imageUrl) {
+      _resetRetryState();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return CachedNetworkImage(
-      cacheManager: cacheManager ?? SlimCacheManager.instance,
-      imageUrl: imageUrl,
-      httpHeaders: httpHeaders,
-      imageBuilder: imageBuilder,
-      placeholder: placeholder,
-      progressIndicatorBuilder: progressIndicatorBuilder,
-      errorWidget: errorWidget,
-      fadeOutDuration: fadeOutDuration,
-      fadeOutCurve: fadeOutCurve,
-      fadeInDuration: fadeInDuration,
-      fadeInCurve: fadeInCurve,
-      width: width,
-      height: height,
-      fit: fit,
-      alignment: alignment,
-      repeat: repeat,
-      matchTextDirection: matchTextDirection,
-      useOldImageOnUrlChange: useOldImageOnUrlChange,
-      color: color,
-      colorBlendMode: colorBlendMode,
-      filterQuality: filterQuality,
-      memCacheWidth: memCacheWidth ?? SlimCacheManager.currentConfig.maxMemWidth,
-      memCacheHeight: memCacheHeight ?? SlimCacheManager.currentConfig.maxMemHeight,
+      cacheManager: _effectiveCacheManager,
+      imageUrl: _effectiveImageUrl,
+      httpHeaders: widget.httpHeaders,
+      imageBuilder: widget.imageBuilder,
+      placeholder: widget.placeholder,
+      progressIndicatorBuilder: widget.progressIndicatorBuilder,
+      errorWidget: _retryEnabled || widget.errorWidget != null ? _errorBuilder : null,
+      fadeOutDuration: widget.fadeOutDuration,
+      fadeOutCurve: widget.fadeOutCurve,
+      fadeInDuration: widget.fadeInDuration,
+      fadeInCurve: widget.fadeInCurve,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      alignment: widget.alignment,
+      repeat: widget.repeat,
+      matchTextDirection: widget.matchTextDirection,
+      useOldImageOnUrlChange: widget.useOldImageOnUrlChange,
+      color: widget.color,
+      colorBlendMode: widget.colorBlendMode,
+      filterQuality: widget.filterQuality,
+      memCacheWidth: widget.memCacheWidth ?? SlimCacheManager.currentConfig.maxMemWidth,
+      memCacheHeight: widget.memCacheHeight ?? SlimCacheManager.currentConfig.maxMemHeight,
       maxWidthDiskCache: SlimCacheManager.currentConfig.maxDiskWidth,
       maxHeightDiskCache: SlimCacheManager.currentConfig.maxDiskHeight,
     );
+  }
+
+  Widget _errorBuilder(BuildContext context, String _, dynamic error) {
+    if (_retryEnabled && _isChromeDecodeError(error)) {
+      if (_retryIndex < _effectiveMaxRetryCount) {
+        _scheduleRetry();
+        return _retryPlaceholder(context);
+      }
+      _resetRetryState();
+    }
+
+    if (widget.errorWidget != null) {
+      return widget.errorWidget!(context, widget.imageUrl, error);
+    }
+
+    return const Icon(Icons.error);
+  }
+
+  bool _isChromeDecodeError(dynamic error) {
+    final message = error?.toString() ?? '';
+    return message.contains(_chromeDecodeErrorMessage);
+  }
+
+  void _scheduleRetry() {
+    if (_retryScheduled) {
+      return;
+    }
+
+    _retryScheduled = true;
+
+    Future<void>.delayed(_retryDelay, () {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _retryIndex += 1;
+        _retrySalt = DateTime.now().microsecondsSinceEpoch;
+        _retryScheduled = false;
+      });
+    });
+  }
+
+  Widget _retryPlaceholder(BuildContext context) {
+    if (widget.placeholder != null) {
+      return widget.placeholder!(context, widget.imageUrl);
+    }
+    return const SizedBox.shrink();
+  }
+
+  void _resetRetryState() {
+    _retryScheduled = false;
+    _retryIndex = 0;
+    _retrySalt = 0;
+  }
+
+  String _appendRetryMarker(String url, String marker) {
+    final hashIndex = url.indexOf('#');
+    final hasFragment = hashIndex >= 0;
+
+    final base = hasFragment ? url.substring(0, hashIndex) : url;
+    final fragment = hasFragment ? url.substring(hashIndex) : '';
+
+    final separator = base.contains('?') ? '&' : '?';
+    return '$base${separator}scniRetry=$marker$fragment';
   }
 }
 
@@ -211,14 +331,19 @@ class SlimCachedNetworkImageProvider extends ImageProvider<SlimCachedNetworkImag
   int? get _effectiveMaxHeight => maxHeight ?? _effectiveConfig.maxMemHeight;
 
   @override
-  Future<SlimCachedNetworkImageProvider> obtainKey(ImageConfiguration configuration) {
+  Future<SlimCachedNetworkImageProvider> obtainKey(
+    ImageConfiguration configuration,
+  ) {
     // The key for this provider is simply itself, relying on the == and hashCode
     // implementation to differentiate between providers with different parameters.
     return SynchronousFuture<SlimCachedNetworkImageProvider>(this);
   }
 
   @override
-  ImageStreamCompleter loadImage(SlimCachedNetworkImageProvider key, ImageDecoderCallback decode) {
+  ImageStreamCompleter loadImage(
+    SlimCachedNetworkImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
     assert(key == this);
 
     // Create the delegate provider to handle loading
