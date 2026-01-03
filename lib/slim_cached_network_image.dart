@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart';
 
 // Default configuration values
 const String _defaultCacheKey = 'slimCachedImageData';
@@ -64,22 +65,33 @@ class SlimCacheManager extends CacheManager with ImageCacheManager {
 
     // Compare only core Config properties for instance reuse
 
-    newInstance = SlimCacheManager._internal(
-      Config(
-        effectiveConfig.cacheKey,
-        stalePeriod: effectiveConfig.stalePeriod,
-        maxNrOfCacheObjects: effectiveConfig.maxNrOfCacheObjects,
-        repo: JsonCacheInfoRepository(databaseName: effectiveConfig.cacheKey),
-        fileService: HttpFileService(),
-        fileSystem: IOFileSystem(effectiveConfig.cacheKey),
-      ),
-    );
+    if (kIsWeb) {
+      newInstance = SlimCacheManager._internal(
+        Config(
+          effectiveConfig.cacheKey,
+          stalePeriod: effectiveConfig.stalePeriod,
+          maxNrOfCacheObjects: effectiveConfig.maxNrOfCacheObjects,
+          fileService: HttpFileService(),
+          // Use default repo and fileSystem for Web to avoid dart:io dependency
+        ),
+      );
+    } else {
+      newInstance = SlimCacheManager._internal(
+        Config(
+          effectiveConfig.cacheKey,
+          stalePeriod: effectiveConfig.stalePeriod,
+          maxNrOfCacheObjects: effectiveConfig.maxNrOfCacheObjects,
+          repo: JsonCacheInfoRepository(databaseName: effectiveConfig.cacheKey),
+          fileService: HttpFileService(),
+          fileSystem: IOFileSystem(effectiveConfig.cacheKey),
+        ),
+      );
+    }
     return newInstance;
   }
 
   // Expose effective config for consumers if needed (read-only)
-  static SlimCachedImageConfig get currentConfig =>
-      _globalCacheConfig; // Or potentially track per-instance config if factory logic changes
+  static SlimCachedImageConfig get currentConfig => _globalCacheConfig; // Or potentially track per-instance config if factory logic changes
 
   /// Sets the default configuration for the SlimCacheManager.
   /// This should be called once, preferably at app startup.
@@ -216,6 +228,7 @@ class _SlimCachedNetworkImageState extends State<SlimCachedNetworkImage> {
       memCacheHeight: widget.memCacheHeight ?? SlimCacheManager.currentConfig.maxMemHeight,
       maxWidthDiskCache: SlimCacheManager.currentConfig.maxDiskWidth,
       maxHeightDiskCache: SlimCacheManager.currentConfig.maxDiskHeight,
+      imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
     );
   }
 
@@ -232,7 +245,7 @@ class _SlimCachedNetworkImageState extends State<SlimCachedNetworkImage> {
       return widget.errorWidget!(context, widget.imageUrl, error);
     }
 
-    return const Icon(Icons.error);
+    return const SizedBox();
   }
 
   bool _isChromeDecodeError(dynamic error) {

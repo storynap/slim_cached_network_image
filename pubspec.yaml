@@ -1,6 +1,6 @@
 name: slim_cached_network_image
 description: "Slim cached network image."
-version: 1.0.0
+version: 1.0.2
 homepage: https://github.com/storynap/slim_cached_network_image
 repository: https://github.com/storynap/slim_cached_network_image
 issue_tracker: https://github.com/storynap/slim_cached_network_image/issues

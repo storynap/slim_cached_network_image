@@ -54,7 +54,7 @@ class MyHomePage extends StatelessWidget {
             Center(
               child: SlimCachedNetworkImage(
                 // Using a random image URL from picsum.photos
-                imageUrl: "https://picsum.photos/seed/picsum1/300/200",
+                imageUrl: "https://shortpixel.com/blog/wp-content/uploads/2023/12/nyan-cat.gif",
                 placeholder: (context, url) => const SizedBox(
                   width: 50,
                   height: 50,
